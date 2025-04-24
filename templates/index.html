@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Note Taking App</title>
+</head>
+<body>
+    <h1>Note Taking App</h1>
+
+    <!-- Note Form -->
+    <form id="note-form">
+        <label for="user_id">User ID:</label><br>
+        <input type="text" id="user_id" name="user_id" required><br><br>
+        <label for="title">Title:</label><br>
+        <input type="text" id="title" name="title" required><br><br>
+        <label for="content">Content:</label><br>
+        <textarea id="content" name="content" required></textarea><br><br>
+        <button type="submit">Save Note</button>
+    </form>
+    <hr>
+
+    {% if message %}
+        <p>{{ message }}</p>
+    {% endif %}
+
+    <hr>
+
+    <a href="/view-notes">View Saved Notes</a>
+
+    <!-- Form to select AI agent type -->
+    <h3>Select AI Agent:</h3>
+    <select id="agent-type">
+        <option value="paraphrase">Paraphrase</option>
+        <option value="summarize">Summarize</option>
+    </select>
+
+    <h3>Select Notes to Process:</h3>
+    <form id="ai-agent-form">
+        <div id="note-checkboxes">
+            <!-- Notes checkboxes will appear here -->
+        </div>
+        <button type="submit">Send to AI</button>
+    </form>
+
+    <h3>AI Agent Output:</h3>
+    <div id="ai-output" style="white-space: pre-wrap; background-color: #f0f0f0; padding: 10px;"></div>
+
+    <script>
+        // Submit form and save note using fetch
+        document.getElementById("note-form").addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const user_id = document.getElementById("user_id").value;
+            const title = document.getElementById("title").value;
+            const content = document.getElementById("content").value;
+
+            fetch("/add-note", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    user_id: user_id,
+                    title: title,
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Note saved successfully!");
+                fetchNotes();  // Refresh the list of notes
+            })
+            .catch(error => console.error("Error:", error));
+        });
+
+        // Fetch and display all saved notes
+        function fetchNotes() {
+            fetch("/view-notes")
+            .then(response => response.json())
+            .then(notes => {
+                const noteCheckboxes = document.getElementById("note-checkboxes");
+                noteCheckboxes.innerHTML = "";  // Clear current checkboxes
+
+                notes.forEach(note => {
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.name = "selected_notes";
+                    checkbox.value = note.id;  // Save the note ID as the value
+                    const label = document.createElement("label");
+                    label.textContent = note.title;
+                    const div = document.createElement("div");
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    noteCheckboxes.appendChild(div);
+                });
+            })
+            .catch(error => console.error("Error fetching notes:", error));
+        }
+
+        // Submit selected notes to AI agent for processing
+        document.getElementById("ai-agent-form").addEventListener("submit", function(e) {
+            e.preventDefault();
+
+            const selectedNotes = [];
+            document.querySelectorAll('input[name="selected_notes"]:checked').forEach(checkbox => {
+                selectedNotes.push(checkbox.value);
+            });
+
+            const agentType = document.getElementById("agent-type").value;
+
+            fetch("/send-to-ai", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    selected_notes: selectedNotes,
+                    agent_type: agentType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Notes sent to AI and processed!");
+
+                // Display the processed notes
+                const aiOutput = document.getElementById("ai-output");
+                aiOutput.innerHTML = ""; // Clear previous results
+
+                data.processed_notes.forEach(note => {
+                    const div = document.createElement("div");
+                    div.innerHTML = `<strong>${note.title}</strong>: ${note.content}`;
+                    aiOutput.appendChild(div);
+                });
+            })
+            .catch(error => console.error("Error sending notes to AI:", error));
+        });
+
+        // Load notes on page load
+        window.onload = function() {
+            fetchNotes();
+        }
+    </script>
+
+</body>
+</html>
